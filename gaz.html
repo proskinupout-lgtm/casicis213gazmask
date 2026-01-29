@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>STALKER: REAL RARITY DATABASE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Play:wght@400;700&display=swap');
+        :root {
+            --common: #b1b1b1; --uncommon: #22c55e; --rare: #3b82f6;
+            --epic: #a855f7; --legendary: #ef4444; --ancient: #eab308;
+            --zone-bg: #0a0a0a;
+        }
+        body {
+            background: var(--zone-bg); color: #ccc; font-family: 'Play', sans-serif;
+            margin: 0; padding: 10px; background-image: radial-gradient(circle, #1a1a1a, #050505);
+            user-select: none;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* AUTH */
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .auth-box { background: #151715; border: 2px solid #333; padding: 40px; width: 320px; text-align: center; }
+        .auth-box input { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #444; color: #22c55e; }
+
+        /* PDA */
+        #game-screen { display: none; }
+        .pda-header {
+            background: #1a1c1a; border: 2px solid #333; padding: 20px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .stat-val { color: #22c55e; font-size: 20px; font-weight: bold; }
+
+        /* LUCK SHOP */
+        .luck-shop { background: #1a1c1a; border: 1px solid #333; padding: 15px; margin-bottom: 20px; }
+        .luck-grid { display: flex; gap: 10px; margin-top: 10px; }
+        .luck-btn { flex: 1; padding: 10px; background: #0a0b0a; border: 1px solid #333; cursor: pointer; text-align: center; font-size: 12px; }
+        .luck-btn.active { border-color: #22c55e; background: #0f2411; }
+
+        /* CASE SECTIONS */
+        .market-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .case-card { background: #141614; border: 1px solid #2a2c2a; padding: 15px; }
+        .viewport { height: 110px; background: #000; position: relative; overflow: hidden; border: 1px solid #222; margin: 15px 0; }
+        .pointer { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: red; z-index: 10; box-shadow: 0 0 10px red; }
+        .strip { display: flex; position: absolute; left: 0; top: 0; height: 100%; transition: transform 5s cubic-bezier(0.1, 0, 0.1, 1); }
+        .item-card { 
+            min-width: 140px; height: 100%; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; text-align: center; 
+            font-size: 10px; border-right: 1px solid #111; padding: 5px; box-sizing: border-box;
+        }
+
+        /* INVENTORY */
+        .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 20px; }
+        .inv-slot { background: #0a0b0a; border: 1px solid #222; padding: 12px; text-align: center; position: relative; }
+        .rarity-label { font-size: 8px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+
+        /* BUTTONS */
+        .btn { background: #2a2c2a; border: 1px solid #444; color: #fff; padding: 10px; cursor: pointer; text-transform: uppercase; font-family: 'Play'; font-weight: bold; width: 100%; }
+        .btn:hover:not(:disabled) { border-color: #22c55e; color: #22c55e; }
+
+        /* TIER COLORS */
+        .t-common { color: var(--common); }
+        .t-uncommon { color: var(--uncommon); }
+        .t-rare { color: var(--rare); }
+        .t-epic { color: var(--epic); text-shadow: 0 0 5px var(--epic); }
+        .t-legendary { color: var(--legendary); text-shadow: 0 0 8px var(--legendary); }
+        .t-ancient { color: var(--ancient); text-shadow: 0 0 12px var(--ancient); }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="auth-box">
+        <h2 style="color:#22c55e">PDA LOGIN</h2>
+        <input type="text" id="l-in" placeholder="ЛОГИН">
+        <input type="password" id="p-in" placeholder="ПАРОЛЬ">
+        <button class="btn" onclick="auth('reg')">РЕГИСТРАЦИЯ</button>
+        <button class="btn" style="background:#22c55e; color:black; margin-top:10px;" onclick="auth('login')">ВХОД</button>
+    </div>
+</div>
+
+<div id="game-screen" class="container">
+    <div class="pda-header">
+        <div>ПОЗЫВНОЙ: <span class="stat-val" id="u-name">---</span></div>
+        <div>БАЛАНС: <span class="stat-val" id="u-bal">0</span> RU</div>
+        <button class="btn" onclick="logout()" style="width:auto; padding:5px 20px; background:#311;">ВЫХОД</button>
+    </div>
+
+    <div class="luck-shop">
+        <div style="font-size:12px; color:#666">МОДИФИКАЦИЯ УДАЧИ (ПОВЫШАЕТ ТИР ПРЕДМЕТОВ)</div>
+        <div class="luck-grid">
+            <div class="luck-btn" id="luck-0" onclick="buyLuck(0,0)">ОБЫЧНАЯ</div>
+            <div class="luck-btn" id="luck-1" onclick="buyLuck(1,15000)">УЛУЧШЕННАЯ</div>
+            <div class="luck-btn" id="luck-2" onclick="buyLuck(2,75000)">ЭЛИТНАЯ</div>
+            <div class="luck-btn" id="luck-3" onclick="buyLuck(3,250000)">МАСТЕРСКАЯ</div>
+        </div>
+    </div>
+
+    <div class="market-grid">
+        <div class="case-card">
+            <div style="font-size:10px; color:#555">КЕЙС: СИЗ (1.000 RU)</div>
+            <div class="viewport"><div class="pointer"></div><div id="strip-mask" class="strip"></div></div>
+            <button class="btn" onclick="openCase('mask')">ОТКРЫТЬ</button>
+        </div>
+        <div class="case-card">
+            <div style="font-size:10px; color:#555">КЕЙС: МЕД (500 RU)</div>
+            <div class="viewport"><div class="pointer"></div><div id="strip-med" class="strip"></div></div>
+            <button class="btn" onclick="openCase('med')">ОТКРЫТЬ</button>
+        </div>
+        <div class="case-card">
+            <div style="font-size:10px; color:#555">КЕЙС: БРОНЯ (3.000 RU)</div>
+            <div class="viewport"><div class="pointer"></div><div id="strip-suit" class="strip"></div></div>
+            <button class="btn" onclick="openCase('suit')">ОТКРЫТЬ</button>
+        </div>
+    </div>
+
+    <div class="inventory-section">
+        <div style="display:flex; justify-content:space-between">
+            <div style="color:#22c55e">ТВОЙ РЮКЗАК</div>
+            <button onclick="sellAll()" style="background:none; border:none; color:#666; cursor:pointer">Продать всё</button>
+        </div>
+        <div id="inv-grid" class="inv-grid"></div>
+    </div>
+</div>
+
+<script>
+// БАЗА ДАННЫХ ПРЕДМЕТОВ С ТИРАМИ
+const DB = {
+    mask: {
+        common: ["ГП-5", "ГП-4у", "ПДФ-Д", "ПДФ-Ш", "ШМП", "ГП-4", "ШМ-62", "ГП-5м"],
+        uncommon: ["ГП-7", "ГП-7В", "ПМГ Нерехта", "ШМС", "РШ-4", "ПФЛ", "ГП-7Б", "ШМ-66У"],
+        rare: ["ПМК-1", "ПМК-2", "ПБФ Хомяк", "ПРВ-У", "ИП-4", "КИП-8", "ГП-21", "ППМ-88"],
+        epic: ["ПМК-3", "ПМК-4", "ГП-9", "МЗС-ВК", "КИП-10", "ИП-6", "ГП-12", "ПМК-Г"],
+        legendary: ["ПМК-С", "ПМК-5", "ПТС Профи", "АП-96", "ШМ-2012", "ИП-46М", "ГП-21У"],
+        ancient: ["Золотой ГП-5", "ПМК-С Мод.", "Прототип Э-01", "КИП-12 Мастер"]
+    },
+    med: {
+        common: ["Бинт СССР", "Вата", "Йод", "Пластырь", "Марля", "Жгут резиновый"],
+        uncommon: ["АИ-2 (Пустая)", "ИПП-8", "ИПП-11", "ППИ-1", "Аптечка Бытовая"],
+        rare: ["АИ-2 (Полная)", "Промедол", "Тарен", "Жгут Эсмарха", "Афифин", "Сумка СМС"],
+        epic: ["АИ-4 Синяя", "Будаксим", "ИДП-1", "П-10М", "Комплект В-1", "Аптечка АБ-1"],
+        legendary: ["Спецаптечка ВДВ", "АИ-3 ВС", "Цистамин", "Набор С-1", "КИ-4 Элит"],
+        ancient: ["Стимулятор 'Монолит'", "Аптечка Стрелка", "Спец-антидот Z"]
+    },
+    suit: {
+        common: ["Куртка новичка", "Плащ бандита", "Куртка кожаная", "Ватник"],
+        uncommon: ["Горка-3", "КЗС Березка", "Маскхалат", "Комбез Наемника"],
+        rare: ["Комбинезон Заря", "Берилл-5М", "Ветер Свободы", "ПСЗ-9д"],
+        epic: ["СЕВА", "Булат", "Страж Свободы", "Комбинезон ССП-99"],
+        legendary: ["Экзоскелет", "СЕВА Мод.", "Скат-9М", "Экзоскелет Долга"],
+        ancient: ["Экзоскелет Охотника", "СЕВА Перун", "Броня Мастера"]
+    }
+};
+
+let users = JSON.parse(localStorage.getItem('st_tiers_users')) || {};
+let cur = null;
+
+function auth(t) {
+    const l = document.getElementById('l-in').value;
+    const p = document.getElementById('p-in').value;
+    if(!l || !p) return;
+    if(t === 'reg') {
+        if(users[l]) return alert("Занят!");
+        users[l] = { pass: p, bal: 5000, inv: [], luck: 0 };
+    } else {
+        if(!users[l] || users[l].pass !== p) return alert("Ошибка!");
+        cur = l;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+    }
+    save(); updateUI();
+}
+
+function save() { localStorage.setItem('st_tiers_users', JSON.stringify(users)); }
+function logout() { location.reload(); }
+
+function buyLuck(l, c) {
+    const u = users[cur];
+    if(u.bal < c) return alert("Нет денег!");
+    u.bal -= c; u.luck = l;
+    save(); updateUI();
+}
+
+function getTier() {
+    const luck = users[cur].luck;
+    const r = Math.random() * 100;
+    const table = [
+        {a:0.5, l:2, e:8, r:20, u:45}, // Обычная
+        {a:2, l:6, e:15, r:35, u:65}, // Улучшенная
+        {a:5, l:15, e:30, r:60, u:85}, // Элитная
+        {a:15, l:35, e:60, r:85, u:95} // Мастерская
+    ][luck];
+
+    if(r < table.a) return 'ancient';
+    if(r < table.l) return 'legendary';
+    if(r < table.e) return 'epic';
+    if(r < table.r) return 'rare';
+    if(r < table.u) return 'uncommon';
+    return 'common';
+}
+
+function openCase(type) {
+    const cost = {mask:1000, med:500, suit:3000}[type];
+    const u = users[cur];
+    if(u.bal < cost) return alert("Мало денег!");
+    u.bal -= cost; save(); updateUI();
+
+    const strip = document.getElementById('strip-'+type);
+    strip.innerHTML = '';
+    for(let i=0; i<60; i++) {
+        const t = getTier();
+        const n = DB[type][t][Math.floor(Math.random()*DB[type][t].length)];
+        strip.innerHTML += `<div class="item-card"><div class="t-${t}">${n}</div></div>`;
+    }
+
+    const winIdx = 45;
+    const winTier = getTier();
+    const winName = DB[type][winTier][Math.floor(Math.random()*DB[type][winTier].length)];
+    const muls = {common:0.5, uncommon:1.2, rare:2.5, epic:6, legendary:15, ancient:50};
+    const winPrice = Math.floor(cost * muls[winTier] * (Math.random()*0.4 + 0.8));
+
+    strip.children[winIdx].innerHTML = `<div class="t-${winTier}" style="font-weight:bold">${winName}</div>`;
+
+    strip.style.transition = 'none';
+    strip.style.transform = 'translateX(0)';
+    setTimeout(() => {
+        strip.style.transition = 'transform 5s cubic-bezier(0.1, 0, 0.1, 1)';
+        strip.style.transform = `translateX(-${winIdx * 140 - 450}px)`;
+    }, 50);
+
+    setTimeout(() => {
+        u.inv.unshift({n:winName, t:winTier, p:winPrice});
+        save(); updateUI();
+    }, 5500);
+}
+
+function updateUI() {
+    if(!cur) return;
+    const u = users[cur];
+    document.getElementById('u-name').innerText = cur;
+    document.getElementById('u-bal').innerText = u.bal.toLocaleString();
+    for(let i=0; i<4; i++) document.getElementById('luck-'+i).className = u.luck === i ? 'luck-btn active' : 'luck-btn';
+
+    const grid = document.getElementById('inv-grid');
+    grid.innerHTML = '';
+    u.inv.forEach((it, i) => {
+        grid.innerHTML += `
+            <div class="inv-slot">
+                <div class="rarity-label t-${it.t}">${it.t}</div>
+                <div class="t-${it.t}" style="font-weight:bold">${it.n}</div>
+                <div style="color:#22c55e; margin:5px 0;">${it.p} RU</div>
+                <button class="btn" style="font-size:8px; padding:2px;" onclick="sell(${i})">ПРОДАТЬ</button>
+            </div>
+        `;
+    });
+}
+
+function sell(i) {
+    const u = users[cur];
+    u.bal += u.inv[i].p;
+    u.inv.splice(i,1);
+    save(); updateUI();
+}
+
+function sellAll() {
+    const u = users[cur];
+    u.inv.forEach(i => u.bal += i.p);
+    u.inv = [];
+    save(); updateUI();
+}
+</script>
+</body>
+</html>
